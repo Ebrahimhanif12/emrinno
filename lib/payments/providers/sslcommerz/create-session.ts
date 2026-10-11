@@ -121,7 +121,7 @@ const responseSchema = z.object({
 .passthrough();
 
 
-function validateGatewayUrl(
+export function validateSSLCommerzGatewayUrl(
   rawUrl: string
 ) {
   const url =
@@ -435,12 +435,11 @@ body.set(
   }
 
 
-  const gatewayUrl =
-    validateGatewayUrl(
-      providerResponse
-        .GatewayPageURL
-    );
-
+const gatewayUrl =
+  validateSSLCommerzGatewayUrl(
+    providerResponse
+      .GatewayPageURL
+  );
 
   return {
     sessionId:

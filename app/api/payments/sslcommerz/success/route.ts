@@ -14,6 +14,10 @@ import {
   readSSLCommerzCallback,
 } from "@/lib/payments/providers/sslcommerz/read-callback";
 
+import {
+  getPaymentReturnPath,
+} from "@/lib/payments/get-payment-return-path";
+
 
 export async function POST(
   request: Request
@@ -44,9 +48,16 @@ export async function POST(
       });
 
 
+    const returnPath =
+      await getPaymentReturnPath(
+        result
+          .merchantTransactionId
+      );
+
+
     const url =
       new URL(
-        "/",
+        returnPath,
         serverEnv.APP_BASE_URL
       );
 

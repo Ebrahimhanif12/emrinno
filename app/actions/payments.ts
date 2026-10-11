@@ -24,8 +24,8 @@ import {
 
 import {
     createSSLCommerzSession,
+    validateSSLCommerzGatewayUrl,
 } from "@/lib/payments/providers/sslcommerz/create-session";
-
 
 const inputSchema = z.object({
     orderId:
@@ -413,28 +413,28 @@ export async function startCheckoutAction(
         "REDIRECTED" &&
         payment.providerCheckoutUrl
     ) {
-        return {
-            success: true,
-            redirectUrl:
-                payment
-                    .providerCheckoutUrl,
-        };
+        try {
+            return {
+                success: true,
+
+                redirectUrl:
+                    validateSSLCommerzGatewayUrl(
+                        payment
+                            .providerCheckoutUrl
+                    ),
+            };
+        } catch {
+            return {
+                success: false,
+
+                code:
+                    "PAYMENT_FAILED",
+
+                message:
+                    "Unable to resume payment.",
+            };
+        }
     }
-
-
-    if (
-        payment.status ===
-        "PENDING"
-    ) {
-        return {
-            success: false,
-            code:
-                "PAYMENT_IN_PROGRESS",
-            message:
-                "Payment is being prepared. Please try again in a moment.",
-        };
-    }
-
 
     if (
         payment.status !==
@@ -506,8 +506,10 @@ export async function startCheckoutAction(
                     success: true,
 
                     redirectUrl:
-                        latest.payment
-                            .providerCheckoutUrl,
+                        validateSSLCommerzGatewayUrl(
+                            latest.payment
+                                .providerCheckoutUrl
+                        ),
                 };
             }
         } catch {

@@ -1,5 +1,4 @@
 "use client";
-
 import {
   ArrowLeft,
   Check,
@@ -10,56 +9,38 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-
 import Link from "next/link";
-
 import {
   useEffect,
   useState,
   useTransition,
 } from "react";
-
 import {
   useRouter,
 } from "next/navigation";
-
 import {
   persistGuestDocumentAction,
 } from "@/app/actions/subminno/documents";
-
-// import {
-//   prepareSubminnoOrderAction,
-// } from "@/app/actions/subminno/orders";
-
 import AuthModal from "@/components/auth/auth-modal";
-
 import SubminnoHeader from "@/components/subminno/layout/subminno-header";
-
 import {
   useGuestDraft,
 } from "@/components/subminno/providers/guest-draft-provider";
-
 import {
   calculatePrice,
 } from "@/lib/services/subminno/pricing/calculate-price";
-
 import type {
   DocumentPackage,
   WorkspaceDocumentSummary,
 } from "@/lib/services/subminno/types";
 import { prepareSubminnoOrderAction } from "@/app/actions/subminno/order";
-
-
+import SecureCheckoutController from "@/components/payments/secure-checkout-controller";
 type CheckWorkspaceProps = {
   documentId: string;
-
   initialAuthenticated: boolean;
-
   initialDocument:
     WorkspaceDocumentSummary | null;
 };
-
-
 export default function CheckWorkspace({
   documentId,
   initialAuthenticated,
@@ -67,21 +48,16 @@ export default function CheckWorkspace({
 }: CheckWorkspaceProps) {
   const router =
     useRouter();
-
   const {
     draft,
     clearDraft,
   } =
     useGuestDraft();
-
-
   const [
     authOpen,
     setAuthOpen,
   ] =
     useState(false);
-
-
   const [
     selectedPackage,
     setSelectedPackage,
@@ -91,8 +67,13 @@ export default function CheckWorkspace({
         ?.selectedPackage ??
         null
     );
-
-
+  const [
+    checkoutOrderId,
+    setCheckoutOrderId,
+  ] =
+    useState<string | null>(
+      null
+    );
   const [
     message,
     setMessage,
@@ -100,28 +81,20 @@ export default function CheckWorkspace({
     useState<string | null>(
       null
     );
-
-
   const [
     waitingForRefresh,
     setWaitingForRefresh,
   ] =
     useState(false);
-
-
   const [
     isPending,
     startTransition,
   ] =
     useTransition();
-
-
   const guestDocument =
     draft?.id === documentId
       ? draft
       : null;
-
-
   const displayDocument:
     WorkspaceDocumentSummary | null =
       initialDocument ??
@@ -130,45 +103,33 @@ export default function CheckWorkspace({
           ? {
               id:
                 guestDocument.id,
-
               source:
                 guestDocument.source,
-
               filename:
                 guestDocument.filename,
-
               fileType:
                 guestDocument.fileType,
-
               wordCount:
                 guestDocument.wordCount,
-
               characterCount:
                 guestDocument.characterCount,
-
               pricing:
                 calculatePrice(
                   guestDocument.wordCount
                 ),
-
               selectedPackage:
                 null,
-
               status:
                 "UPLOADED",
-
               createdAt:
                 guestDocument.createdAt,
             }
           : null
       );
-
-
   // ---------------------------------------------------------
   // Keep local package state synchronized with the persisted
   // authoritative document after a server refresh.
   // ---------------------------------------------------------
-
   useEffect(() => {
     if (
       initialDocument
@@ -183,28 +144,20 @@ export default function CheckWorkspace({
     initialDocument
       ?.selectedPackage,
   ]);
-
-
   // ---------------------------------------------------------
   // Guest document successfully persisted and server refresh
   // returned the authenticated document.
   //
   // Only now clear the RAM-only guest draft.
   // ---------------------------------------------------------
-
   useEffect(() => {
     if (
       waitingForRefresh &&
       initialDocument
     ) {
       clearDraft();
-
       setWaitingForRefresh(
         false
-      );
-
-      setMessage(
-        "Order prepared securely. Payment has not started yet."
       );
     }
   }, [
@@ -212,13 +165,10 @@ export default function CheckWorkspace({
     initialDocument,
     waitingForRefresh,
   ]);
-
-
   // ---------------------------------------------------------
   // Persist an in-memory guest draft after authentication,
   // then prepare its authoritative Emrinno order.
   // ---------------------------------------------------------
-
   async function persistGuestDraft() {
     if (
       !guestDocument ||
@@ -226,36 +176,24 @@ export default function CheckWorkspace({
     ) {
       return;
     }
-
-
     setMessage(null);
-
-
     // -------------------------------------------------------
     // 1. Persist the private document.
     // -------------------------------------------------------
-
     const result =
       await persistGuestDocumentAction({
         id:
           guestDocument.id,
-
         source:
           guestDocument.source,
-
         filename:
           guestDocument.filename,
-
         fileType:
           guestDocument.fileType,
-
         text:
           guestDocument.text,
-
         selectedPackage,
       });
-
-
     if (!result.success) {
       if (
         result.code ===
@@ -264,17 +202,12 @@ export default function CheckWorkspace({
         setAuthOpen(true);
         return;
       }
-
-
       setMessage(
         result.message ??
           "Unable to save your document."
       );
-
       return;
     }
-
-
     // -------------------------------------------------------
     // 2. Prepare the platform order.
     //
@@ -287,16 +220,12 @@ export default function CheckWorkspace({
     // - pricing version
     // - amount
     // -------------------------------------------------------
-
     const orderResult =
       await prepareSubminnoOrderAction({
         documentId:
           guestDocument.id,
-
         selectedPackage,
       });
-
-
     if (!orderResult.success) {
       if (
         orderResult.code ===
@@ -305,41 +234,29 @@ export default function CheckWorkspace({
         setAuthOpen(true);
         return;
       }
-
-
       setMessage(
         orderResult.message
       );
-
       return;
     }
-
-
     // -------------------------------------------------------
     // 3. Refresh the authenticated server workspace.
     //
     // Guest draft remains in RAM until persisted document
     // actually returns through initialDocument.
     // -------------------------------------------------------
-
     setAuthOpen(false);
-
     setWaitingForRefresh(
       true
     );
-
-    setMessage(
-      "Order prepared securely. Payment has not started yet."
+    setCheckoutOrderId(
+      orderResult.orderId
     );
-
     router.refresh();
   }
-
-
   // ---------------------------------------------------------
   // Continue from package selection.
   // ---------------------------------------------------------
-
   function handleContinue() {
     if (
       !selectedPackage ||
@@ -347,16 +264,11 @@ export default function CheckWorkspace({
     ) {
       return;
     }
-
-
     setMessage(null);
-
-
     // -------------------------------------------------------
     // Already-persisted authenticated document.
     // Prepare/reuse its Emrinno order.
     // -------------------------------------------------------
-
     if (initialDocument) {
       startTransition(
         async () => {
@@ -365,8 +277,6 @@ export default function CheckWorkspace({
               documentId,
               selectedPackage,
             });
-
-
           if (!result.success) {
             if (
               result.code ===
@@ -375,21 +285,14 @@ export default function CheckWorkspace({
               setAuthOpen(true);
               return;
             }
-
-
             setMessage(
               result.message
             );
-
             return;
           }
-
-
-          setMessage(
-            "Order prepared securely. Payment has not started yet."
+          setCheckoutOrderId(
+            result.orderId
           );
-
-
           /*
            * Refresh so selected_package and any future
            * server-owned checkout state remain synchronized.
@@ -397,45 +300,33 @@ export default function CheckWorkspace({
           router.refresh();
         }
       );
-
       return;
     }
-
-
     // -------------------------------------------------------
     // Guest draft must authenticate before persistence/order.
     // -------------------------------------------------------
-
     if (!initialAuthenticated) {
       setAuthOpen(true);
       return;
     }
-
-
     startTransition(
       persistGuestDraft
     );
   }
-
-
   // ---------------------------------------------------------
   // No authenticated document and no matching in-memory
   // guest draft.
   // ---------------------------------------------------------
-
   if (!displayDocument) {
     return (
       <main className="min-h-screen bg-background">
         <SubminnoHeader compact />
-
         <div className="subminno-container flex min-h-[70vh] items-center justify-center py-12">
           <div className="max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-card">
             <FileText className="mx-auto size-9 text-muted" />
-
             <h1 className="mt-5 text-xl font-semibold">
               Document not available
             </h1>
-
             <p className="mt-2 text-sm leading-6 text-secondary">
               If you refreshed
               before signing in,
@@ -443,7 +334,6 @@ export default function CheckWorkspace({
               draft was intentionally
               cleared for privacy.
             </p>
-
             <Link
               href="/subminno"
               className="mt-6 inline-flex rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-hover"
@@ -455,8 +345,6 @@ export default function CheckWorkspace({
       </main>
     );
   }
-
-
   const continuePrice =
     selectedPackage ===
     "AI_CHECK"
@@ -468,30 +356,23 @@ export default function CheckWorkspace({
             .pricing
             .completeCheck
         : null;
-
-
   return (
     <main className="min-h-screen bg-background">
       <SubminnoHeader compact />
-
       <div className="subminno-container py-8 sm:py-10">
         <Link
           href="/subminno"
           className="inline-flex items-center gap-2 text-sm font-medium text-secondary transition hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-
           Upload a different document
         </Link>
-
-
         <section className="mt-6 rounded-xl border border-border bg-surface p-5 shadow-card sm:p-6">
           <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-4">
               <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-brand">
                 <FileText className="size-6" />
               </div>
-
               <div className="min-w-0">
                 <h1
                   title={
@@ -503,22 +384,17 @@ export default function CheckWorkspace({
                   {displayDocument.filename ??
                     "Pasted text"}
                 </h1>
-
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary">
                   <span>
                     {displayDocument.wordCount.toLocaleString()}{" "}
                     words
                   </span>
-
                   <span>•</span>
-
                   <span>
                     {displayDocument.characterCount.toLocaleString()}{" "}
                     characters
                   </span>
-
                   <span>•</span>
-
                   <span className="uppercase">
                     {displayDocument.source ===
                     "PASTE"
@@ -528,25 +404,20 @@ export default function CheckWorkspace({
                 </div>
               </div>
             </div>
-
             <div className="inline-flex w-fit items-center gap-2 rounded-full bg-success-soft px-3 py-1.5 text-xs font-semibold text-success">
               <CheckCircle2 className="size-4" />
-
               {initialDocument
                 ? "Saved"
                 : "Ready"}
             </div>
           </div>
         </section>
-
-
         <section className="mx-auto mt-10 max-w-4xl">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Choose how you want
               to check your document
             </h2>
-
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-secondary sm:text-base">
               Your price is based
               on this document&apos;s
@@ -554,8 +425,6 @@ export default function CheckWorkspace({
               subscription required.
             </p>
           </div>
-
-
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             <PackageCard
               title="AI Check"
@@ -580,8 +449,6 @@ export default function CheckWorkspace({
                 )
               }
             />
-
-
             <PackageCard
               title="Complete Check"
               description="Review, improve and recheck before submission."
@@ -611,8 +478,6 @@ export default function CheckWorkspace({
               }
             />
           </div>
-
-
           {selectedPackage && (
             <div className="mt-6">
               <button
@@ -626,9 +491,7 @@ export default function CheckWorkspace({
                 {isPending && (
                   <Loader2 className="size-4 animate-spin" />
                 )}
-
                 Continue securely
-
                 {continuePrice !==
                   null && (
                   <>
@@ -640,18 +503,13 @@ export default function CheckWorkspace({
               </button>
             </div>
           )}
-
-
           {message && (
             <div className="mt-4 rounded-lg border border-border bg-surface p-4 text-sm text-secondary">
               {message}
             </div>
           )}
-
-
           <div className="mt-6 flex items-start gap-3 rounded-lg border border-border bg-surface p-4">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-accent" />
-
             <p className="text-xs leading-5 text-secondary sm:text-sm">
               No AI detection is
               started until payment
@@ -660,8 +518,16 @@ export default function CheckWorkspace({
           </div>
         </section>
       </div>
-
-
+      <SecureCheckoutController
+        orderId={
+          checkoutOrderId
+        }
+        onClose={() => {
+          setCheckoutOrderId(
+            null
+          );
+        }}
+      />
       <AuthModal
         open={authOpen}
         onClose={() =>
@@ -674,27 +540,16 @@ export default function CheckWorkspace({
     </main>
   );
 }
-
-
 type PackageCardProps = {
   title: string;
-
   description: string;
-
   price: number;
-
   features: string[];
-
   selected: boolean;
-
   recommended?: boolean;
-
   accent?: boolean;
-
   onSelect: () => void;
 };
-
-
 function PackageCard({
   title,
   description,
@@ -722,27 +577,21 @@ function PackageCard({
           Recommended
         </span>
       )}
-
       <h3 className="text-lg font-bold">
         {title}
       </h3>
-
       <p className="mt-2 min-h-12 text-sm leading-6 text-secondary">
         {description}
       </p>
-
       <div className="mt-6 flex items-end gap-1">
         <span className="text-sm font-semibold text-secondary">
           ৳
         </span>
-
         <span className="text-4xl font-bold tracking-tight">
           {price}
         </span>
       </div>
-
       <div className="my-6 h-px bg-border" />
-
       <ul className="flex-1 space-y-3">
         {features.map(
           (feature) => (
@@ -757,7 +606,6 @@ function PackageCard({
                     : "text-success"
                 }`}
               />
-
               <span>
                 {feature}
               </span>
@@ -765,7 +613,6 @@ function PackageCard({
           )
         )}
       </ul>
-
       <button
         type="button"
         onClick={onSelect}
@@ -789,12 +636,10 @@ function PackageCard({
             ) : (
               <ShieldCheck className="size-4" />
             )}
-
             Choose {title}
           </>
         )}
       </button>
-
       {accent && (
         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-secondary">
           <RefreshCw className="size-3.5" />

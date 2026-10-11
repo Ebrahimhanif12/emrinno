@@ -14,14 +14,28 @@ import {
   recordTerminalCallback,
 } from "@/lib/payments/record-terminal-callback";
 
+import {
+  getPaymentReturnPath,
+} from "@/lib/payments/get-payment-return-path";
+
 
 export async function POST(
   request: Request
 ) {
+  let returnPath =
+    "/";
+
+
   try {
     const callback =
       await readSSLCommerzCallback(
         request
+      );
+
+
+    returnPath =
+      await getPaymentReturnPath(
+        callback.transactionId
       );
 
 
@@ -47,7 +61,7 @@ export async function POST(
 
   const url =
     new URL(
-      "/",
+      returnPath,
       serverEnv.APP_BASE_URL
     );
 
